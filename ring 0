@@ -1,0 +1,45 @@
+# PowerShell script to get installed applications and their versions
+
+# Define the output file path
+$outputFile = "C:\installed_apps.csv"
+
+# Create a header for the CSV file
+"Application Name, Version, Install Location" | Out-File -FilePath $outputFile -Encoding UTF8
+
+# Function to get installed applications from the registry (for 32-bit and 64-bit applications)
+function Get-InstalledApps {
+    $appList = @()
+
+    # Registry paths where application info is stored
+    $regPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*", # 64-bit apps
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*", # 32-bit apps on 64-bit systems
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"  # User-specific installed apps
+    )
+
+    foreach ($path in $regPaths) {
+        $apps = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+        foreach ($app in $apps) {
+            # Filter out system applications without a display name
+            if ($app.DisplayName -and $app.DisplayVersion) {
+                $appInfo = [PSCustomObject]@{
+                    Name = $app.DisplayName
+                    Version = $app.DisplayVersion
+                    InstallLocation = $app.InstallLocation
+                }
+                $appList += $appInfo
+            }
+        }
+    }
+
+    return $appList
+}
+
+# Get installed apps and output to CSV
+$installedApps = Get-InstalledApps
+$installedApps | ForEach-Object {
+    "$($_.Name), $($_.Version), $($_.InstallLocation)" | Out-File -FilePath $outputFile -Append -Encoding UTF8
+}
+
+# Output the file location
+Write-Host "Installed applications and their versions have been saved to: $outputFile"
